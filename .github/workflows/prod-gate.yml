@@ -1,0 +1,37 @@
+name: Gate PRs Targeting Production
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [production]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      ALLOWED_AUTHORS: "alice,bob"   # admin usernames or keep a team-checked version (see note)
+      REQUIRED_SOURCE: "development"
+    steps:
+      - name: Check PR source branch and author
+        run: |
+          SRC="${{ github.head_ref }}"
+          ACTOR="${{ github.actor }}"
+
+          # Must come from development
+          if [ "$SRC" != "$REQUIRED_SOURCE" ]; then
+            echo "Only PRs from '$REQUIRED_SOURCE' may target 'production'."
+            exit 1
+          fi
+
+          # Must be opened by an allowed admin (optional)
+          IFS=',' read -ra ALLOWED <<< "$ALLOWED_AUTHORS"
+          ok="no"
+          for u in "${ALLOWED[@]}"; do
+            [ "$ACTOR" = "$u" ] && ok="yes"
+          done
+          if [ "$ok" != "yes" ]; then
+            echo "Only approved release managers may open PRs to production."
+            exit 1
+          fi

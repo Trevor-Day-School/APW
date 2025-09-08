@@ -1,0 +1,17 @@
+name: Enforce PR Source to Production
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [production]   # target branch
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if source is not 'development'
+        run: |
+          echo "Base: ${{ github.base_ref }}"
+          echo "Head: ${{ github.head_ref }}"
+          if [ "${{ github.base_ref }}" = "production" ] && [ "${{ github.head_ref }}" != "development" ]; then
+            echo "Only PRs from 'development' may target 'production'."
+            exit 1
+          fi
