@@ -1,8 +1,9 @@
+# .github/workflows/prod-gate.yml
 name: Gate PRs Targeting Production
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
-    branches: [production]
+    branches: [production]   # target branch
 
 jobs:
   validate:
@@ -10,28 +11,49 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-    env:
-      ALLOWED_AUTHORS: "alice,bob"   # admin usernames or keep a team-checked version (see note)
-      REQUIRED_SOURCE: "development"
-    steps:
-      - name: Check PR source branch and author
-        run: |
-          SRC="${{ github.head_ref }}"
-          ACTOR="${{ github.actor }}"
 
-          # Must come from development
-          if [ "$SRC" != "$REQUIRED_SOURCE" ]; then
-            echo "Only PRs from '$REQUIRED_SOURCE' may target 'production'."
+    env:
+      REQUIRED_SOURCE: "development"
+      # EITHER use an allowlist of usernames...
+      ALLOWED_USERS: "alice bob charlie"
+      # ...OR comment ALLOWED_USERS and use TEAM check below.
+
+    steps:
+      - name: Fail if source branch is not REQUIRED_SOURCE
+        run: |
+          echo "Base (target): ${{ github.base_ref }}"
+          echo "Head (source): ${{ github.head_ref }}"
+          if [ "${{ github.head_ref }}" != "${{ env.REQUIRED_SOURCE }}" ]; then
+            echo "Only PRs from '${{ env.REQUIRED_SOURCE }}' may target 'production'."
             exit 1
           fi
 
-          # Must be opened by an allowed admin (optional)
-          IFS=',' read -ra ALLOWED <<< "$ALLOWED_AUTHORS"
+      - name: Allow only specific users to open PRs (simple mode)
+        if: env.ALLOWED_USERS != ''
+        run: |
+          ACTOR="${{ github.actor }}"
           ok="no"
-          for u in "${ALLOWED[@]}"; do
+          for u in $ALLOWED_USERS; do
             [ "$ACTOR" = "$u" ] && ok="yes"
           done
           if [ "$ok" != "yes" ]; then
-            echo "Only approved release managers may open PRs to production."
+            echo "Only release managers may open PRs to production."
             exit 1
           fi
+
+      # --- OPTIONAL: team-based check (use this instead of ALLOWED_USERS) ---
+      # Requires a fine-grained PAT in repo secrets named ORG_TOKEN with read:org scope.
+      # - name: Allow only members of @your-org/release-managers to open PRs
+      #   env:
+      #     ORG: your-org
+      #     TEAM_SLUG: release-managers
+      #   run: |
+      #     ACTOR="${{ github.actor }}"
+      #     # Get team members and check if ACTOR is in the list
+      #     curl -s -H "Authorization: Bearer ${{ secrets.ORG_TOKEN }}" \
+      #          -H "Accept: application/vnd.github+json" \
+      #          "https://api.github.com/orgs/$ORG/teams/$TEAM_SLUG/members" \
+      #       | grep -q "\"login\": \"${ACTOR}\"" || {
+      #           echo "Only @$ORG/$TEAM_SLUG may open PRs to production."
+      #           exit 1
+      #         }
