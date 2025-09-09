@@ -3,57 +3,43 @@ name: Gate PRs Targeting Production
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
-    branches: [production]   # target branch
+    branches: [production]   # only runs on PRs targeting 'production'
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
-
-    env:
-      REQUIRED_SOURCE: "development"
-      # EITHER use an allowlist of usernames...
-      ALLOWED_USERS: "alice bob charlie"
-      # ...OR comment ALLOWED_USERS and use TEAM check below.
-
     steps:
-      - name: Fail if source branch is not REQUIRED_SOURCE
+      - name: Check source branch and user permission
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
         run: |
-          echo "Base (target): ${{ github.base_ref }}"
-          echo "Head (source): ${{ github.head_ref }}"
-          if [ "${{ github.head_ref }}" != "${{ env.REQUIRED_SOURCE }}" ]; then
-            echo "Only PRs from '${{ env.REQUIRED_SOURCE }}' may target 'production'."
+          echo "Target (base) branch: $BASE"
+          echo "Source (head) branch: $HEAD"
+          echo "Actor: $ACTOR"
+
+          # 1. Enforce source branch
+          if [ "$HEAD" != "development" ]; then
+            echo "❌ Only PRs from 'development' may target 'production'."
             exit 1
           fi
 
-      - name: Allow only specific users to open PRs (simple mode)
-        if: env.ALLOWED_USERS != ''
-        run: |
-          ACTOR="${{ github.actor }}"
-          ok="no"
-          for u in $ALLOWED_USERS; do
-            [ "$ACTOR" = "$u" ] && ok="yes"
-          done
-          if [ "$ok" != "yes" ]; then
-            echo "Only release managers may open PRs to production."
+          # 2. Check actor's permission on this repo
+          PERM=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+                       -H "Accept: application/vnd.github+json" \
+                       "https://api.github.com/repos/$REPO/collaborators/$ACTOR/permission" \
+                  | jq -r '.permission')
+
+          echo "Permission for $ACTOR: $PERM"
+
+          if [ "$PERM" != "admin" ] && [ "$PERM" != "maintain" ]; then
+            echo "❌ Only repo admins or maintainers can open PRs to production."
             exit 1
           fi
 
-      # --- OPTIONAL: team-based check (use this instead of ALLOWED_USERS) ---
-      # Requires a fine-grained PAT in repo secrets named ORG_TOKEN with read:org scope.
-      # - name: Allow only members of @your-org/release-managers to open PRs
-      #   env:
-      #     ORG: your-org
-      #     TEAM_SLUG: release-managers
-      #   run: |
-      #     ACTOR="${{ github.actor }}"
-      #     # Get team members and check if ACTOR is in the list
-      #     curl -s -H "Authorization: Bearer ${{ secrets.ORG_TOKEN }}" \
-      #          -H "Accept: application/vnd.github+json" \
-      #          "https://api.github.com/orgs/$ORG/teams/$TEAM_SLUG/members" \
-      #       | grep -q "\"login\": \"${ACTOR}\"" || {
-      #           echo "Only @$ORG/$TEAM_SLUG may open PRs to production."
-      #           exit 1
-      #         }
+          echo "✅ Checks passed: source branch is 'development' and actor has admin/maintain rights."
