@@ -1,45 +1,59 @@
 name: Gate PRs Targeting Production
+
 on:
-  pull_request:
-    types: [opened, edited, synchronize, reopened]
-    branches: [production]   # only runs on PRs targeting 'production'
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+    branches: [production]   # <-- make sure this matches your real prod branch name
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     permissions:
-      contents: read            # read repo to query permissions
-      pull-requests: write      # close PRs
-      issues: write             # comment on PRs (PRs are issues underneath)
+      contents: read
+      pull-requests: write
+      issues: write
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPO: ${{ github.repository }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       ACTOR: ${{ github.actor }}
-      HEAD: ${{ github.head_ref }}
+      BASE_REF: ${{ github.event.pull_request.base.ref }}
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      HEAD_REPO_FULL: ${{ github.event.pull_request.head.repo.full_name }}
+      BASE_REPO_FULL: ${{ github.event.pull_request.base.repo.full_name }}
 
     steps:
+      - name: Echo context for debugging
+        run: |
+          echo "Base (target) branch: $BASE_REF"
+          echo "Head (source) branch: $HEAD_REF"
+          echo "Actor: $ACTOR"
+          echo "Head repo: $HEAD_REPO_FULL"
+          echo "Base repo: $BASE_REPO_FULL"
+
       - name: Compute policy violations
         id: check
         run: |
           FAIL_REASON=""
 
-          # Rule 1: Source must be 'development'
-          if [ "$HEAD" != "development" ]; then
-            FAIL_REASON="PRs to 'production' must come from 'development'. (Got: '$HEAD')"
+          # Rule 1: Only allow PRs from 'development'
+          if [ "$HEAD_REF" != "development" ]; then
+            FAIL_REASON="PRs to '$BASE_REF' must come from 'development'. (Got: '$HEAD_REF')"
           fi
 
-          # Rule 2: Author must be admin/maintain on this repo
+          # Rule 2: Only allow repo admins/maintainers to open the PR
           PERM=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
                        -H "Accept: application/vnd.github+json" \
                        "https://api.github.com/repos/$REPO/collaborators/$ACTOR/permission" \
                  | jq -r '.permission')
 
+          echo "Detected permission for $ACTOR: $PERM"
+
           if [ "$PERM" != "admin" ] && [ "$PERM" != "maintain" ]; then
             if [ -n "$FAIL_REASON" ]; then
               FAIL_REASON="$FAIL_REASON  "
             fi
-            FAIL_REASON="${FAIL_REASON}Only repo admins/maintainers may open PRs to 'production'. (Actor: $ACTOR, perm: $PERM)"
+            FAIL_REASON="${FAIL_REASON}Only repo admins/maintainers may open PRs to '$BASE_REF'. (Actor: $ACTOR, perm: $PERM)"
           fi
 
           if [ -n "$FAIL_REASON" ]; then
