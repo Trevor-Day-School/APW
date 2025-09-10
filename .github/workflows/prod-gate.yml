@@ -1,59 +1,73 @@
-# .github/workflows/prod-gate.yml
 name: Gate PRs Targeting Production
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
-    branches: [production]   # target branch
+    branches: [production]   # only runs on PRs targeting 'production'
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pull-requests: write
-
+      contents: read            # read repo to query permissions
+      pull-requests: write      # close PRs
+      issues: write             # comment on PRs (PRs are issues underneath)
     env:
-      REQUIRED_SOURCE: "development"
-      # EITHER use an allowlist of usernames...
-      ALLOWED_USERS: "alice bob charlie"
-      # ...OR comment ALLOWED_USERS and use TEAM check below.
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      ACTOR: ${{ github.actor }}
+      HEAD: ${{ github.head_ref }}
 
     steps:
-      - name: Fail if source branch is not REQUIRED_SOURCE
+      - name: Compute policy violations
+        id: check
         run: |
-          echo "Base (target): ${{ github.base_ref }}"
-          echo "Head (source): ${{ github.head_ref }}"
-          if [ "${{ github.head_ref }}" != "${{ env.REQUIRED_SOURCE }}" ]; then
-            echo "Only PRs from '${{ env.REQUIRED_SOURCE }}' may target 'production'."
-            exit 1
+          FAIL_REASON=""
+
+          # Rule 1: Source must be 'development'
+          if [ "$HEAD" != "development" ]; then
+            FAIL_REASON="PRs to 'production' must come from 'development'. (Got: '$HEAD')"
           fi
 
-      - name: Allow only specific users to open PRs (simple mode)
-        if: env.ALLOWED_USERS != ''
-        run: |
-          ACTOR="${{ github.actor }}"
-          ok="no"
-          for u in $ALLOWED_USERS; do
-            [ "$ACTOR" = "$u" ] && ok="yes"
-          done
-          if [ "$ok" != "yes" ]; then
-            echo "Only release managers may open PRs to production."
-            exit 1
+          # Rule 2: Author must be admin/maintain on this repo
+          PERM=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+                       -H "Accept: application/vnd.github+json" \
+                       "https://api.github.com/repos/$REPO/collaborators/$ACTOR/permission" \
+                 | jq -r '.permission')
+
+          if [ "$PERM" != "admin" ] && [ "$PERM" != "maintain" ]; then
+            if [ -n "$FAIL_REASON" ]; then
+              FAIL_REASON="$FAIL_REASON  "
+            fi
+            FAIL_REASON="${FAIL_REASON}Only repo admins/maintainers may open PRs to 'production'. (Actor: $ACTOR, perm: $PERM)"
           fi
 
-      # --- OPTIONAL: team-based check (use this instead of ALLOWED_USERS) ---
-      # Requires a fine-grained PAT in repo secrets named ORG_TOKEN with read:org scope.
-      # - name: Allow only members of @your-org/release-managers to open PRs
-      #   env:
-      #     ORG: your-org
-      #     TEAM_SLUG: release-managers
-      #   run: |
-      #     ACTOR="${{ github.actor }}"
-      #     # Get team members and check if ACTOR is in the list
-      #     curl -s -H "Authorization: Bearer ${{ secrets.ORG_TOKEN }}" \
-      #          -H "Accept: application/vnd.github+json" \
-      #          "https://api.github.com/orgs/$ORG/teams/$TEAM_SLUG/members" \
-      #       | grep -q "\"login\": \"${ACTOR}\"" || {
-      #           echo "Only @$ORG/$TEAM_SLUG may open PRs to production."
-      #           exit 1
-      #         }
+          if [ -n "$FAIL_REASON" ]; then
+            echo "violation=true" >> $GITHUB_OUTPUT
+            echo "reason=$FAIL_REASON" >> $GITHUB_OUTPUT
+          else
+            echo "violation=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment and close PR on violation
+        if: steps.check.outputs.violation == 'true'
+        run: |
+          BODY="This pull request was closed automatically:\n\n- ${{ steps.check.outputs.reason }}\n\nIf you believe this is in error, please contact a repository admin."
+          # Comment
+          curl -s -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d "{\"body\":\"${BODY}\"}" \
+            "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments" >/dev/null
+          # Close PR
+          curl -s -X PATCH \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d '{"state":"closed"}' \
+            "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER" >/dev/null
+
+      - name: Fail the check to block merge
+        if: steps.check.outputs.violation == 'true'
+        run: |
+          echo "Blocking merge due to policy violation: ${{ steps.check.outputs.reason }}"
+          exit 1
