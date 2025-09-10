@@ -71,3 +71,37 @@ jobs:
         run: |
           echo "Blocking merge due to policy violation: ${{ steps.check.outputs.reason }}"
           exit 1
+      contents: read
+    steps:
+      - name: Check source branch and user permission
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.actor }}
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+        run: |
+          echo "Target (base) branch: $BASE"
+          echo "Source (head) branch: $HEAD"
+          echo "Actor: $ACTOR"
+
+          # 1. Enforce source branch
+          if [ "$HEAD" != "development" ]; then
+            echo "❌ Only PRs from 'development' may target 'production'."
+            exit 1
+          fi
+
+          # 2. Check actor's permission on this repo
+          PERM=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+                       -H "Accept: application/vnd.github+json" \
+                       "https://api.github.com/repos/$REPO/collaborators/$ACTOR/permission" \
+                  | jq -r '.permission')
+
+          echo "Permission for $ACTOR: $PERM"
+
+          if [ "$PERM" != "admin" ] && [ "$PERM" != "maintain" ]; then
+            echo "❌ Only repo admins or maintainers can open PRs to production."
+            exit 1
+          fi
+
+          echo "✅ Checks passed: source branch is 'development' and actor has admin/maintain rights."
