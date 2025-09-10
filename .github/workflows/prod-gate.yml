@@ -9,7 +9,7 @@ on:
 jobs:
   validate:
     # Double guard: skip unless the PR base is production
-    if: ${{ github.event.pull_request.base.ref == 'production' }}
+    if: ${{ github.base.ref == 'production' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
