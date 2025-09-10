@@ -1,12 +1,15 @@
+# .github/workflows/prod-gate.yml
 name: Gate PRs Targeting Production
 
 on:
   pull_request_target:
     types: [opened, edited, synchronize, reopened, ready_for_review]
-    branches: [production]   # <-- make sure this matches your real prod branch name
+    branches: [production]   # only trigger on PRs whose TARGET is production
 
 jobs:
   validate:
+    # Double guard: skip unless the PR base is production
+    if: ${{ github.event.pull_request.base.ref == 'production' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -19,40 +22,26 @@ jobs:
       ACTOR: ${{ github.actor }}
       BASE_REF: ${{ github.event.pull_request.base.ref }}
       HEAD_REF: ${{ github.event.pull_request.head.ref }}
-      HEAD_REPO_FULL: ${{ github.event.pull_request.head.repo.full_name }}
-      BASE_REPO_FULL: ${{ github.event.pull_request.base.repo.full_name }}
 
     steps:
-      - name: Echo context for debugging
-        run: |
-          echo "Base (target) branch: $BASE_REF"
-          echo "Head (source) branch: $HEAD_REF"
-          echo "Actor: $ACTOR"
-          echo "Head repo: $HEAD_REPO_FULL"
-          echo "Base repo: $BASE_REPO_FULL"
-
       - name: Compute policy violations
         id: check
         run: |
           FAIL_REASON=""
 
-          # Rule 1: Only allow PRs from 'development'
+          # Rule 1: only from development
           if [ "$HEAD_REF" != "development" ]; then
             FAIL_REASON="PRs to '$BASE_REF' must come from 'development'. (Got: '$HEAD_REF')"
           fi
 
-          # Rule 2: Only allow repo admins/maintainers to open the PR
+          # Rule 2: only repo admin/maintain can open
           PERM=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
                        -H "Accept: application/vnd.github+json" \
                        "https://api.github.com/repos/$REPO/collaborators/$ACTOR/permission" \
                  | jq -r '.permission')
 
-          echo "Detected permission for $ACTOR: $PERM"
-
           if [ "$PERM" != "admin" ] && [ "$PERM" != "maintain" ]; then
-            if [ -n "$FAIL_REASON" ]; then
-              FAIL_REASON="$FAIL_REASON  "
-            fi
+            if [ -n "$FAIL_REASON" ]; then FAIL_REASON="$FAIL_REASON  "; fi
             FAIL_REASON="${FAIL_REASON}Only repo admins/maintainers may open PRs to '$BASE_REF'. (Actor: $ACTOR, perm: $PERM)"
           fi
 
@@ -63,24 +52,18 @@ jobs:
             echo "violation=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Comment and close PR on violation
+      - name: Comment + close PR on violation
         if: steps.check.outputs.violation == 'true'
         run: |
           BODY="This pull request was closed automatically:\n\n- ${{ steps.check.outputs.reason }}\n\nIf you believe this is in error, please contact a repository admin."
-          # Comment
-          curl -s -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
+          curl -s -X POST -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
             -d "{\"body\":\"${BODY}\"}" \
             "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments" >/dev/null
-          # Close PR
-          curl -s -X PATCH \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
+          curl -s -X PATCH -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
             -d '{"state":"closed"}' \
             "https://api.github.com/repos/$REPO/pulls/$PR_NUMBER" >/dev/null
 
-      - name: Fail the check to block merge
+      - name: Fail check to block merge
         if: steps.check.outputs.violation == 'true'
         run: |
           echo "Blocking merge due to policy violation: ${{ steps.check.outputs.reason }}"
