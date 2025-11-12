@@ -43,6 +43,7 @@
 // });
 
 // export default App;
+
 import React from 'react';
 import {SafeAreaView, Text, Button, Alert, StyleSheet} from 'react-native';
 
