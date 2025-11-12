@@ -16,3 +16,5 @@ $(document).ready(function() {  										 	// jQuery will wait until DOM is rea
 });	// end of jQuery block
 
 // more javaScript code not using jQuery could go here
+
+// why do i have this file my name is literally jesse greenhaus
