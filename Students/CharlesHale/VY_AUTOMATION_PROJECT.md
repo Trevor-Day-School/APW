@@ -25,6 +25,17 @@ Several scripts have been developed for different purposes:
 
 The current configuration supports a 16GB Mac setup with 2 VMs at 5GB each plus the host at 6GB. The entire project has been organized into a structured directory with 124 files categorized by function. Working checkpoints have been saved for known stable states.
 
+Industry Collaboration
+
+I have been collaborating with QL2, a data scraping and competitive intelligence company, to implement a similar vision-based automation system within their infrastructure. This ongoing partnership has involved:
+
+- Consulting on the integration of LLM-powered vision systems for their CAPTCHA bypass requirements
+- Adapting the Hammerspoon automation framework for their specific use cases
+- Sharing insights on context window management and automatic recovery systems
+- Providing guidance on scaling the approach across multiple machines
+
+This collaboration validates the commercial viability of the automation approach and has provided valuable feedback for improving the core system architecture.
+
 Planned Development
 
 Immediate Priorities
@@ -43,11 +54,11 @@ Long-term improvements include a general Mac Mini setup script, central monitori
 
 Current Status
 
-The working automation system is operational with functional VM rotation and token detection. RAM optimization is currently in progress, and the testing phase is pending.
+The working automation system is operational with functional VM rotation and token detection. RAM optimization is currently in progress, and the testing phase is pending. Active industry collaboration with QL2 is ongoing.
 
 Technical Implementation
 
 The system uses Hammerspoon for automation scripting in Lua, UTM for virtualization, Vy for LLM and vision-based computer interaction, and will deploy to a Mac Mini farm.
 
 ---
-Last Updated: October 2025
+Last Updated: November 2025
