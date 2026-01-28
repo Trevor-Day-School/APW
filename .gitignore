@@ -5,3 +5,5 @@
 .DS_Store
 .icloud
 debug.log
+node_modules
+.env
