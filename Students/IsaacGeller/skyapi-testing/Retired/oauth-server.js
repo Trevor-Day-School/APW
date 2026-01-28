@@ -4,7 +4,7 @@ const app = express();
 const PORT = 3000;
 
 // Replace these with your app info
-const CLIENT_ID = '';
+const CLIENT_ID = 'c85e0df1-1e1f-4c1c-89f4-4d5373717d16';
 const REDIRECT_URI = 'http://localhost:3000/callback';
 const SCOPES = 'your_scope_here';
 
