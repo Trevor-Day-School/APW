@@ -1,0 +1,13 @@
+Isaac, Tyler, and I were originally tasked to piece the UI and the backend, 
+but as we are already close to spring break, I have been helping out with Adrian and Ben 
+on the UI. 
+
+Adrian and Ben already pushed the code but here is the update from today. 
+When I first started working with them, they added a new scrolling menu, 
+which has a list of a student’s classes and a functional button that responds with a confirmation
+
+They have been slowly adding the required elements to make the list appear in the app. 
+While they are getting along, I helped them and suggested they install React Native Picker 
+to help debug the list that has not been loading correctly and was orignially unscrollable. 
+I suggested that the buttons are more responsive and helped them connecting two functions
+to make it more user friendly. 
