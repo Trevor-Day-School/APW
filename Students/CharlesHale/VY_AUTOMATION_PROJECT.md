@@ -25,29 +25,40 @@ Several scripts have been developed for different purposes:
 
 The current configuration supports a 16GB Mac setup with 2 VMs at 5GB each plus the host at 6GB. The entire project has been organized into a structured directory with 124 files categorized by function. Working checkpoints have been saved for known stable states.
 
-Planned Development
+Industry Collaboration
 
-Immediate Priorities
+I have been collaborating with QL2, a data scraping and competitive intelligence company, to implement a similar vision-based automation system within their infrastructure. This ongoing partnership has involved:
 
-RAM optimization to achieve 4.5GB per VM is the first goal. This involves researching and creating a setup script to lower VM requirements while verifying compatibility with Vy operation. The target is to test 3 VMs plus the host on a single Mac Mini.
+- Consulting on the integration of LLM-powered vision systems for their CAPTCHA bypass requirements
+- Adapting the Hammerspoon automation framework for their specific use cases
+- Sharing insights on context window management and automatic recovery systems
+- Providing guidance on scaling the approach across multiple machines
 
-VM navigation and monitoring improvements are needed. The script must be able to switch between VMs from the physical computer, monitor Vy status and token count across all VMs, automatically kill and restart VMs on token exhaustion, and provide enhanced debugging capabilities.
+This collaboration validates the commercial viability of the automation approach and has provided valuable feedback for improving the core system architecture.
 
-Dynamic resource management will include automatic RAM adjustment based on load, Chrome restart on high RAM usage, and comprehensive system health monitoring.
+Development Progress
 
-A testing phase will validate the system with 4 days at 100% uptime, deployment to 2 Mac Minis, and collection of performance metrics.
+Completed Optimizations
 
-Future Enhancements
+RAM optimization was achieved at 4.5GB per VM after testing various configurations. The setup script now automatically configures VM memory allocation while maintaining Vy compatibility. The system runs 3 VMs plus the host on a single Mac Mini without issues.
 
-Long-term improvements include a general Mac Mini setup script, central monitoring from the main computer, and a remote control system for all Mac Minis. Residential VPN rotation is being considered. The system should support automated update propagation across all systems and include downtime detection with alerts.
+VM navigation and monitoring is fully functional. The script switches between VMs from the physical computer, monitors Vy status and token count across all VMs, automatically kills and restarts VMs on token exhaustion, and provides debugging output when needed.
 
-Current Status
+Dynamic resource management was implemented with automatic RAM adjustment based on load, Chrome restart triggers on high RAM usage, and system health monitoring that logs to a local file.
 
-The working automation system is operational with functional VM rotation and token detection. RAM optimization is currently in progress, and the testing phase is pending.
+The testing phase was completed with over a week of continuous uptime. The system was deployed to 2 Mac Minis and performance metrics confirmed stability.
+
+Future Considerations
+
+If I return to this project, potential improvements include a general Mac Mini setup script for faster deployment, central monitoring from the main computer, and a remote control system for all Mac Minis. Residential VPN rotation could be added for additional anonymity. Automated update propagation across all systems and downtime detection with alerts would also be useful.
+
+Final Status
+
+The project is complete and stable. All major bugs have been fixed and the system runs continuously in the background without intervention. VM rotation, token detection, memory management, and automatic recovery all function as intended. The system has been stress tested and is now in passive operation mode. I am moving on to other projects but will keep this running.
 
 Technical Implementation
 
 The system uses Hammerspoon for automation scripting in Lua, UTM for virtualization, Vy for LLM and vision-based computer interaction, and will deploy to a Mac Mini farm.
 
 ---
-Last Updated: October 2025
+Last Updated: January 2026
