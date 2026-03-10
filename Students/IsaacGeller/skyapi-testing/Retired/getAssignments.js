@@ -1,4 +1,4 @@
-const sky = require("./skyApiClient");
+const sky = require("../skyApiClient");
 
 // Change this to the section you want to test
 const SECTION_ID = 4300;
